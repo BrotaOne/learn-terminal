@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { Terminal }  from 'xterm'
+import { Terminal } from 'xterm'
 import './App.css'
 import 'xterm/css/xterm.css'
+import useNode from './useNode'
 
 const TermColors = {
   Red: "\x1B[1;31m",
@@ -18,9 +19,11 @@ const genPrompt = (terminal: Terminal) => {
 function App() {
   const input = useRef('')
   const instance = useRef<Terminal>(null)
+ 
+  const nodeCommand = useNode()
 
   const runCommand = useCallback(
-    () => {
+    async() => {
       if (!instance.current) {
         return
       }
@@ -33,11 +36,16 @@ function App() {
           terminal.writeln(' Available commands:')
           terminal.writeln(` ${TermColors.Green}ls clear help${TermColors.Reset}`)
           break
+        case 'ls':
+          const result = await nodeCommand.ls()
+          terminal.writeln(' ' + result.join(' '));
+          terminal.writeln('')
+          break;
         default:
           if (!input.current) {
             break
           }
-          instance.current.writeln(` You entered: ${input.current}`)
+          terminal.writeln(` You entered: ${input.current}`)
           break
       }
 
@@ -63,14 +71,14 @@ function App() {
       terminal.writeln('')
       genPrompt(terminal)
    
-      terminal.onKey(event => {
+      terminal.onKey(async event => {
         const code = event.domEvent.code
         console.log('code: ', code)
 
         switch (code) {
           case 'Enter':
             terminal.writeln('')
-            runCommand()
+            await runCommand()
             genPrompt(terminal)
             break
           case 'Backspace':
