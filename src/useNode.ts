@@ -1,6 +1,63 @@
 import { WebContainer } from "@webcontainer/api"
 import { useEffect, useRef } from "react"
 
+const packageStr = JSON.stringify({
+    "name": "vite-starter",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "devDependencies": {
+        "vite": "^4.0.4"
+    }
+}, null, 2)
+
+const files = {
+    document: {
+        directory: {
+            'blog.md': {
+                file: {
+                    contents: 'Today I bought a macbook air m4. '
+                }
+            }
+        }
+    },
+    'package.json': {
+        file: {
+            contents: packageStr,
+        },
+    },
+    aaaaaaaaaaaa: {
+        file: {
+            contents: 'a'
+        }
+    },
+    bbbbbbbbbbbbb: {
+        file: {
+            contents: 'b'
+        }
+    },
+    ccccccccccccc: {
+        file: {
+            contents: 'c'
+        }
+    },
+    ddddddddddddd: {
+        file: {
+            contents: 'd'
+        }
+    },
+    eeeeeeeeeeeeee: {
+        file: {
+            contents: 'e'
+        }
+    }
+}
+
 const useNode = () => {
     const instance = useRef<WebContainer | null>(null)
     const status = useRef<'boot' | 'unboot'>('unboot')
@@ -12,46 +69,56 @@ const useNode = () => {
                 WebContainer.boot().then(async webcontainerInstance => {
                     instance.current = webcontainerInstance
 
-                    const files = {
-                        'package.json': {
-                            file: {
-                                contents: `
-                                {
-                                    "name": "vite-starter",
-                                    "private": true,
-                                    "version": "0.0.0",
-                                    "type": "module",
-                                    "scripts": {
-                                        "dev": "vite",
-                                        "build": "vite build",
-                                        "preview": "vite preview"
-                                    },
-                                    "devDependencies": {
-                                        "vite": "^4.0.4"
-                                    }
-                                }`,
-                            },
-                        },
-                    };
-
-                    await instance.current.mount(files);
+                    await instance.current.mount(files)
                 })
+            }
+
+            return () => {
+                if (status.current === 'boot' && instance.current) {
+                    instance.current.teardown()
+                    status.current = 'unboot'
+                }
             }
         },
         []
     )
 
-    const ls = async () => {
+    const check = () => {
         if (!instance.current) {
-            return ['error no instance']
+            throw new Error('error no instance')
         }
+    }
 
-        return await instance.current!.fs.readdir('/');
+    const ls = async () => {
+        check()
+
+        const files =  await instance.current!.fs.readdir('/', {
+            withFileTypes: true,
+        })
+
+        return files.map(v => ({
+            name: v.name,
+            isDir:  v.isDirectory()
+        }))
+    }
+
+    const mkdir = async (name: string) => {
+        check()
+        
+        await instance.current!.fs.mkdir(name)
+    }
+
+    const rmdir = async (name: string) => {
+        check()
+        
+        await instance.current!.fs.rm(name, { recursive: true })
     }
 
     return {
-        ls
+        ls,
+        mkdir,
+        rmdir
     }
 }
 
-export default useNode;
+export default useNode
