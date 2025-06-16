@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal } from 'xterm'
 import './App.css'
 import 'xterm/css/xterm.css'
-import useNode from './useNode'
+import useNode, { closeIframe } from './useNode'
 
 const TermColors = {
   Red: "\x1B[1;31m",
@@ -22,6 +22,26 @@ function App() {
   const instance = useRef<Terminal>(null)
  
   const nodeCommand = useNode()
+  const exitServer = useRef<null | (() => void)>(null)
+  const [, setState] = useState(0)
+  const forceUpdate = useCallback(
+    () => setState(v => v + 1),
+    [setState]
+  )
+
+  const closeServer = useCallback(
+    () => {
+      if (exitServer.current) {
+        exitServer.current()
+        exitServer.current = null
+        closeIframe()
+        forceUpdate()
+      } else {
+        return 'no runing server'
+      }
+    },
+    [exitServer, forceUpdate]
+  )
 
   const runCommand = useCallback(
     async () => {
@@ -37,10 +57,10 @@ function App() {
             break
           case 'help':
             terminal.writeln(' Available commands:')
-            terminal.writeln(` ${TermColors.Green}ls clear help${TermColors.Reset}`)
+            terminal.writeln(` ${TermColors.Green}ls clear help mkdir rmdir openServer closeServer${TermColors.Reset}`)
             break
           case 'ls': {
-            const result = await nodeCommand.ls()
+            const result = await nodeCommand.ls(commands[1])
            
             const files = result.map(v => {
               if (v.isDir) {
@@ -59,7 +79,20 @@ function App() {
             await nodeCommand.rmdir(commands[1])
             break
           }
-          
+          case 'openServer': {
+            const exit = await nodeCommand.openServer()
+            exitServer.current = exit
+            forceUpdate()
+            break
+          }
+          case 'closeServer': {
+            const msg = closeServer()
+            if (msg) {
+              terminal.writeln(` ${TermColors.Red}${msg}${TermColors.Reset}`)
+              terminal.writeln('')
+            }
+            break
+          }
           default:
             if (!input.current) {
               break
@@ -75,7 +108,7 @@ function App() {
 
       input.current = ''
     },
-    [instance, nodeCommand]
+    [instance, nodeCommand, forceUpdate]
   )
 
   useEffect(
@@ -135,6 +168,9 @@ function App() {
   return (
     <>
       <div id="terminal" />
+      <div>{nodeCommand.status === 'booting' && '容器加载中'}</div>
+      {exitServer.current && <div onClick={closeServer}>关闭服务</div>}
+      <iframe id="iframe" />
     </>
   )
 }
