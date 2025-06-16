@@ -16,3 +16,18 @@ yarn dev
 # 截图
 
 <img alt="web shell" src="./web shell.png" >
+
+# todo
+
+- [] add resize
+
+```js
+const shellProcess = await startShell(terminal);
+window.addEventListener('resize', () => {
+    fitAddon.fit();
+    shellProcess.resize({
+        cols: terminal.cols,
+        rows: terminal.rows,
+    });
+})
+```

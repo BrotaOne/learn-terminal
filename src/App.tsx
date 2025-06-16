@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Terminal } from 'xterm'
+import { Terminal } from '@xterm/xterm'
+import { FitAddon } from '@xterm/addon-fit'
 import './App.css'
-import 'xterm/css/xterm.css'
+import '@xterm/xterm/css/xterm.css'
 import useNode, { closeIframe } from './useNode'
 
 const TermColors = {
@@ -21,13 +22,26 @@ function App() {
   const input = useRef('')
   const instance = useRef<Terminal>(null)
  
-  const nodeCommand = useNode()
   const exitServer = useRef<null | (() => void)>(null)
   const [, setState] = useState(0)
   const forceUpdate = useCallback(
     () => setState(v => v + 1),
     [setState]
   )
+
+  const status = useRef<1 | 2>(1)
+
+  const write = useCallback(
+    (data: string) => {
+      if (instance.current) {
+        instance.current.write(data)
+      }  
+    },
+    []
+  )
+
+  const nodeCommand = useNode(write, instance)
+
 
   const closeServer = useCallback(
     () => {
@@ -57,7 +71,7 @@ function App() {
             break
           case 'help':
             terminal.writeln(' Available commands:')
-            terminal.writeln(` ${TermColors.Green}ls clear help mkdir rmdir openServer closeServer${TermColors.Reset}`)
+            terminal.writeln(` ${TermColors.Green}ls clear help mkdir rmdir openServer closeServer jsh${TermColors.Reset}`)
             break
           case 'ls': {
             const result = await nodeCommand.ls(commands[1])
@@ -93,6 +107,12 @@ function App() {
             }
             break
           }
+          case 'jsh': {
+            const input = await nodeCommand.jsh()
+            status.current = 2
+            instance.current!.onData(data=> input.write(data))
+            break
+          }
           default:
             if (!input.current) {
               break
@@ -108,7 +128,7 @@ function App() {
 
       input.current = ''
     },
-    [instance, nodeCommand, forceUpdate]
+    [nodeCommand, forceUpdate, closeServer]
   )
 
   useEffect(
@@ -116,6 +136,8 @@ function App() {
       const terminal = new Terminal({
         tabStopWidth: 4,
       })
+      const fitAddon = new FitAddon()
+      terminal.loadAddon(fitAddon)
       instance.current = terminal
 
       const container = document.getElementById('terminal')
@@ -130,6 +152,9 @@ function App() {
       genPrompt(terminal)
    
       terminal.onKey(async event => {
+        if (status.current !== 1) {
+          return
+        }
         const code = event.domEvent.code
         console.log('code: ', code)
 

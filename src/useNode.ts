@@ -1,5 +1,6 @@
 import { WebContainer } from "@webcontainer/api"
-import { useEffect, useRef, useState } from "react"
+import type { Terminal } from "@xterm/xterm"
+import { useEffect, useRef, useState, type RefObject } from "react"
 
 const packageStr = JSON.stringify({
     "name": "vite-starter",
@@ -113,7 +114,10 @@ export const closeIframe = () => {
     iframe.removeAttribute('src')
 }
 
-const useNode = () => {
+const useNode = (
+    write: (data: string) => void,
+    terminalInstance: RefObject<Terminal | null>,
+) => {
     const instance = useRef<WebContainer | null>(null)
     const [status, setStatus] = useState<'boot' | 'unboot' | 'booting'>('unboot')
     const statusRef = useRef<'boot' | 'unboot' | 'booting'>('unboot')
@@ -219,7 +223,8 @@ const useNode = () => {
         install.output.pipeTo(
             new WritableStream({
                 write(data) {
-                    console.log(data);
+                    // console.log(data);
+                    write(data)
                 },
             })
         );
@@ -231,7 +236,8 @@ const useNode = () => {
         process.output.pipeTo(
             new WritableStream({
                 write(data) {
-                    console.log(data);
+                    // console.log(data);
+                    write(data)
                 },
             })
         );
@@ -244,6 +250,28 @@ const useNode = () => {
         return process.kill.bind(process);
     }
 
+    const jsh = async () => {
+        check()
+        const shellProcess = await instance.current!.spawn('jsh', [], {
+            terminal: {
+                cols: terminalInstance.current?.cols || 80,
+                rows: terminalInstance.current?.rows || 24
+            }
+        })
+
+        shellProcess.output.pipeTo(
+            new WritableStream({
+                write(data) {
+                    write(data)
+                },
+            })
+        )
+
+        const input = shellProcess.input.getWriter()
+
+        return input
+    }
+
     return {
         ls,
         mkdir,
@@ -251,6 +279,7 @@ const useNode = () => {
         openServer,
         openVite,
         status,
+        jsh,
     }
 }
 
