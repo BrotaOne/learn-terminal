@@ -203,7 +203,7 @@ const useNode = (
             })
         );
 
-        instance.current!.on("server-ready", (port, url) => {
+        instance.current!.on("server-ready", ( _ , url) => {
             console.log("server-ready", url);
             const iframe = document.querySelector("iframe");
             if (!iframe) {
@@ -242,7 +242,7 @@ const useNode = (
             })
         );
 
-        instance.current!.on("server-ready", (port, url) => {
+        instance.current!.on("server-ready", ( _ , url) => {
             console.log("server-ready", url);
             openIframe(url)
         })
