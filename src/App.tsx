@@ -108,9 +108,20 @@ function App() {
             break
           }
           case 'jsh': {
-            const input = await nodeCommand.jsh()
+            const inputStream = await nodeCommand.jsh()
             status.current = 2
-            instance.current!.onData(data=> input.write(data))
+            let isExit = false
+            instance.current!.onData(data => {
+              if (data.charCodeAt(0) === 13 && isExit) {
+                status.current = 1
+                inputStream.close()
+                terminal.writeln('')
+                genPrompt(terminal)
+              } else {
+                inputStream.write(data)
+                isExit = input.current === 'exit'
+              }
+            })
             break
           }
           default:
@@ -125,8 +136,6 @@ function App() {
         terminal.writeln(` ${TermColors.Red}${message}${TermColors.Reset}`)
         terminal.writeln('')
       }
-
-      input.current = ''
     },
     [nodeCommand, forceUpdate, closeServer]
   )
@@ -152,32 +161,38 @@ function App() {
       genPrompt(terminal)
    
       terminal.onKey(async event => {
-        if (status.current !== 1) {
-          return
-        }
         const code = event.domEvent.code
         console.log('code: ', code)
 
         switch (code) {
           case 'Enter':
-            terminal.writeln('')
-            await runCommand()
-            genPrompt(terminal)
+            if (status.current === 1) { 
+              terminal.writeln('')
+              await runCommand()
+              genPrompt(terminal)
+            }
+            input.current = ''
             break
           case 'Backspace':
             if (input.current.length > 0) {
-              terminal.write('\b \b')
+              if (status.current === 1) { 
+                terminal.write('\b \b')
+              }
               input.current = input.current.slice(0, -1)
             }
             break
           case 'Tab': {
+            if (status.current === 1) { 
               terminal.write(event.key)
-              const length = 4 - (input.current.length + 3)%4
-              input.current += Array(length).fill(' ').join('')
-              break
+            }
+            const length = 4 - (input.current.length + 3) % 4
+            input.current += Array(length).fill(' ').join('')
+            break
           }
           default:
-            terminal.write(event.key)
+            if (status.current === 1) { 
+              terminal.write(event.key)
+            }
             input.current += event.key
         }
       })
